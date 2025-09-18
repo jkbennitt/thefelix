@@ -27,7 +27,7 @@ Implementation supports testing of Hypotheses H1 (task distribution) and H3 (att
 import random
 from enum import Enum
 from typing import Optional, List, Tuple, Any
-from core.helix_geometry import HelixGeometry
+from src.core.helix_geometry import HelixGeometry
 
 
 class AgentState(Enum):

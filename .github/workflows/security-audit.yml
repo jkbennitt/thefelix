@@ -1,0 +1,246 @@
+# Security Audit Workflow for Felix Framework
+# Comprehensive security scanning and vulnerability assessment
+
+name: Security Audit
+
+on:
+  schedule:
+    # Run weekly security audit
+    - cron: '0 2 * * 1'
+  push:
+    branches: [ main ]
+    paths:
+      - 'requirements*.txt'
+      - 'Dockerfile'
+      - '.github/workflows/security-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    name: Dependency Security Audit
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install audit tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit semgrep pip-audit
+
+    - name: Python dependency audit
+      run: |
+        pip-audit --format=json --output=pip-audit-report.json
+        safety check --json --output=safety-report.json
+      continue-on-error: true
+
+    - name: Code security scan
+      run: |
+        bandit -r src/ deployment/ -f json -o bandit-report.json
+        semgrep --config=auto --json --output=semgrep-report.json src/ deployment/
+      continue-on-error: true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit-reports
+        path: |
+          pip-audit-report.json
+          safety-report.json
+          bandit-report.json
+          semgrep-report.json
+
+  docker-security:
+    runs-on: ubuntu-latest
+    name: Docker Security Scan
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t felix-framework:security-test .
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'felix-framework:security-test'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Docker Bench Security
+      run: |
+        docker run --rm --net host --pid host --userns host --cap-add audit_control \
+          -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
+          -v /etc:/etc:ro \
+          -v /var/lib:/var/lib:ro \
+          -v /var/run/docker.sock:/var/run/docker.sock:ro \
+          --label docker_bench_security \
+          docker/docker-bench-security
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    name: Secrets Detection
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: TruffleHog OSS
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+  license-audit:
+    runs-on: ubuntu-latest
+    name: License Compliance Check
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-licenses
+
+    - name: Check licenses
+      run: |
+        pip install -r requirements.txt -r requirements-deployment.txt
+        pip-licenses --format=json --output-file=licenses-report.json
+        pip-licenses --format=csv --output-file=licenses-report.csv
+
+    - name: Upload license reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: license-reports
+        path: |
+          licenses-report.json
+          licenses-report.csv
+
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    name: CodeQL Security Analysis
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  security-summary:
+    runs-on: ubuntu-latest
+    name: Security Summary
+    needs: [dependency-audit, docker-security, secrets-scan, license-audit, codeql-analysis]
+    if: always()
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Generate security summary
+      run: |
+        echo "# Security Audit Summary" > security-summary.md
+        echo "" >> security-summary.md
+        echo "**Date:** $(date)" >> security-summary.md
+        echo "**Commit:** ${{ github.sha }}" >> security-summary.md
+        echo "" >> security-summary.md
+
+        # Add job statuses
+        echo "## Job Results" >> security-summary.md
+        echo "- Dependency Audit: ${{ needs.dependency-audit.result }}" >> security-summary.md
+        echo "- Docker Security: ${{ needs.docker-security.result }}" >> security-summary.md
+        echo "- Secrets Scan: ${{ needs.secrets-scan.result }}" >> security-summary.md
+        echo "- License Audit: ${{ needs.license-audit.result }}" >> security-summary.md
+        echo "- CodeQL Analysis: ${{ needs.codeql-analysis.result }}" >> security-summary.md
+        echo "" >> security-summary.md
+
+        # Count issues if reports exist
+        if [ -f "security-audit-reports/safety-report.json" ]; then
+          SAFETY_ISSUES=$(jq '.vulnerabilities | length' security-audit-reports/safety-report.json)
+          echo "- Safety vulnerabilities found: $SAFETY_ISSUES" >> security-summary.md
+        fi
+
+        if [ -f "security-audit-reports/bandit-report.json" ]; then
+          BANDIT_ISSUES=$(jq '.results | length' security-audit-reports/bandit-report.json)
+          echo "- Bandit security issues found: $BANDIT_ISSUES" >> security-summary.md
+        fi
+
+        echo "" >> security-summary.md
+        echo "For detailed reports, check the uploaded artifacts." >> security-summary.md
+
+    - name: Upload security summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-summary
+        path: security-summary.md
+
+    - name: Comment PR with security summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('security-summary.md', 'utf8');
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+    - name: Fail if critical vulnerabilities found
+      run: |
+        EXIT_CODE=0
+
+        # Check for critical issues
+        if [ -f "security-audit-reports/safety-report.json" ]; then
+          CRITICAL_COUNT=$(jq '[.vulnerabilities[] | select(.severity == "high" or .severity == "critical")] | length' security-audit-reports/safety-report.json)
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "❌ Found $CRITICAL_COUNT critical/high severity vulnerabilities"
+            EXIT_CODE=1
+          fi
+        fi
+
+        exit $EXIT_CODE

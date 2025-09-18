@@ -35,17 +35,17 @@ from queue import Queue, Empty
 import asyncio
 
 # Memory system imports
-from memory.knowledge_store import KnowledgeStore, KnowledgeEntry, KnowledgeType, ConfidenceLevel
-from memory.task_memory import TaskMemory, TaskPattern, TaskOutcome
-from memory.context_compression import ContextCompressor, CompressionStrategy
+from src.memory.knowledge_store import KnowledgeStore, KnowledgeEntry, KnowledgeType, ConfidenceLevel
+from src.memory.task_memory import TaskMemory, TaskPattern, TaskOutcome
+from src.memory.context_compression import ContextCompressor, CompressionStrategy
 
 # Dynamic spawning imports - moved to avoid circular imports
 
 if TYPE_CHECKING:
-    from agents.llm_agent import LLMAgent
-    from core.helix_geometry import HelixGeometry
-    from llm.lm_studio_client import LMStudioClient
-    from llm.token_budget import TokenBudgetManager
+    from src.agents.llm_agent import LLMAgent
+    from src.core.helix_geometry import HelixGeometry
+    from src.llm.lm_studio_client import LMStudioClient
+    from src.llm.token_budget import TokenBudgetManager
 
 # Set up logging
 logger = logging.getLogger(__name__)

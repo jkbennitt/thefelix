@@ -51,22 +51,22 @@ class TestHelixGeometry:
         with pytest.raises(ValueError, match="turns must be positive"):
             HelixGeometry(top_radius=10.0, bottom_radius=1.0, height=10.0, turns=0)
     
-    def test_position_at_bottom_of_helix_t0(self, standard_helix):
-        """Test position calculation at helix bottom (t=0)."""
+    def test_position_at_top_of_helix_t0(self, standard_helix):
+        """Test position calculation at helix top (t=0) - where agents spawn."""
         x, y, z = standard_helix.get_position(t=0.0)
-        
-        # At t=0, should be at bottom of helix
-        assert abs(z - 0.0) < 1e-10  # bottom height
-        assert abs(x - 0.001) < 1e-10  # bottom_radius, angle=0
+
+        # At t=0, should be at top of helix (where agents spawn)
+        assert abs(z - 33.0) < 1e-10  # top height
+        assert abs(x - 33.0) < 1e-10  # top_radius, angle=0
         assert abs(y - 0.0) < 1e-10   # angle=0
     
-    def test_position_at_top_of_helix(self, standard_helix):
-        """Test position calculation at helix top (t=1)."""
+    def test_position_at_bottom_of_helix_t1(self, standard_helix):
+        """Test position calculation at helix bottom (t=1) - where agents converge."""
         x, y, z = standard_helix.get_position(t=1.0)
-        
-        # At t=1, should be at top of helix after 33 full turns
-        assert abs(z - 33.0) < 1e-10  # top height
-        assert abs(x - 33.0) < 1e-10  # top_radius, 33 full turns = 0 angle
+
+        # At t=1, should be at bottom of helix after 33 full turns
+        assert abs(z - 0.0) < 1e-10  # bottom height
+        assert abs(x - 0.001) < 1e-10  # bottom_radius, 33 full turns = 0 angle
         assert abs(y - 0.0) < 1e-10    # 33 full turns = 0 angle
     
     def test_position_at_helix_midpoint(self, standard_helix):
@@ -214,7 +214,12 @@ class TestHelixGeometryEdgeCases:
         assert not math.isnan(y)
         assert not math.isnan(z)
         
-        # At bottom (t=0), radius should be very close to tiny value
-        x_bot, y_bot, z_bot = tiny_bottom.get_position(0.0)
+        # At top (t=0), radius should be large
+        x_top, y_top, z_top = tiny_bottom.get_position(0.0)
+        radius_top = math.sqrt(x_top*x_top + y_top*y_top)
+        assert abs(radius_top - 100.0) < 1e-10
+
+        # At bottom (t=1), radius should be very close to tiny value
+        x_bot, y_bot, z_bot = tiny_bottom.get_position(1.0)
         radius_bot = math.sqrt(x_bot*x_bot + y_bot*y_bot)
         assert radius_bot < 1e-9
