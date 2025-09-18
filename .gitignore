@@ -1,2 +1,6 @@
 venv/
 archive/
+.venv/
+
+## Local Claude Code settings
+## .claude/settings.local.json
