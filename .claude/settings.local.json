@@ -15,7 +15,12 @@
       "Bash(cat:*)",
       "mcp__hf-mcp-server__model_search",
       "Bash(source:*)",
-      "Bash(.venv/Scripts/activate)"
+      "Bash(.venv/Scripts/activate)",
+      "Bash(grep:*)",
+      "Bash(pip install:*)",
+      "Bash(xargs ls:*)",
+      "Bash(for file in frontend/components/*.ts)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
