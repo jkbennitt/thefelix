@@ -1,65 +1,38 @@
-# Felix Framework - ZeroGPU Optimized Dependencies
-# Core mathematical and testing framework
-numpy>=1.26.0
-scipy>=1.11.0
+# HuggingFace Spaces Requirements for Felix Framework
+# Optimized for ZeroGPU deployment with minimal dependencies
 
-# Hugging Face Spaces and ZeroGPU Integration
-spaces>=0.19.0                  # ZeroGPU decorators and GPU management
-gradio>=4.15.0                  # Interactive web interface
-torch>=2.0.0                    # PyTorch for GPU acceleration
-transformers>=4.36.0            # Direct model loading and inference
-accelerate>=0.25.0              # Optimized GPU memory management
-datasets>=2.16.0                # Dataset loading and processing
+# Core Felix Framework
+numpy>=1.26.0,<2.0.0
+scipy>=1.11.0,<2.0.0
 
-# Model Loading and Inference Optimization
-sentencepiece>=0.1.99           # Tokenizer support for various models
-safetensors>=0.4.0              # Safe model loading format
-tokenizers>=0.15.0              # Fast tokenization
+# HuggingFace Spaces Integration
+spaces>=0.19.0
+gradio>=4.15.0,<5.0.0
+huggingface_hub>=0.19.0
 
-# LLM Integration (Fallback and Testing)
-openai>=1.3.0                   # OpenAI API compatibility
-httpx>=0.25.0                   # Async HTTP client
-aiohttp>=3.9.0                  # Alternative async HTTP client
+# ZeroGPU Support
+torch>=2.0.0,<3.0.0
+transformers>=4.36.0,<5.0.0
+accelerate>=0.25.0,<1.0.0
 
-# Visualization and Interactive UI
-matplotlib>=3.7.0               # 2D plotting for helix visualization
-plotly>=5.17.0                  # Interactive 3D visualization
-pillow>=10.0.0                  # Image processing
-pandas>=2.0.0                   # Data manipulation for metrics
+# Visualization (Essential)
+plotly>=5.17.0,<6.0.0
+matplotlib>=3.7.0,<4.0.0
+pillow>=10.0.0,<11.0.0
+pandas>=2.0.0,<3.0.0
 
-# Performance Monitoring and Optimization
-psutil>=5.9.0                   # System resource monitoring
-memory-profiler>=0.60.0         # Memory usage profiling
+# Network and API
+httpx>=0.25.0,<1.0.0
+aiohttp>=3.9.0,<4.0.0
 
-# Audio/Video Processing (Optional for advanced demos)
-librosa>=0.10.0                 # Audio processing
-opencv-python-headless>=4.8.0   # Computer vision (headless for server)
+# Async Support
+asyncio-throttle>=1.0.0
+uvloop>=0.19.0; sys_platform != "win32"
 
-# Scientific Computing Enhancements
-scikit-learn>=1.3.0             # Machine learning utilities
-networkx>=3.1                   # Graph algorithms for agent communication
+# Mathematical Operations
+sympy>=1.12.0,<2.0.0
 
-# Async Processing and Concurrency
-asyncio>=3.4.3                  # Asynchronous processing
-concurrent.futures              # Built-in: Parallel execution
-threading                       # Built-in: Thread management
-
-# Utility Libraries
-tqdm>=4.66.0                    # Progress bars
-click>=8.1.0                    # Command-line interface
-pydantic>=2.5.0                 # Data validation
-python-dotenv>=1.0.0            # Environment variable management
-
-# Testing Framework (Minimal for production)
-pytest>=7.4.0                   # Only if testing in production
-hypothesis>=6.90.0               # Property-based testing
-
-# Documentation Generation (Optional)
-# sphinx>=7.1.0                 # Commented out for production deployment
-# sphinx-rtd-theme>=1.3.0       # Commented out for production deployment
-
-# Development Dependencies (Commented out for production)
-# pytest-cov>=4.1.0             # Coverage reporting
-# black>=23.0.0                 # Code formatting
-# isort>=5.12.0                 # Import sorting
-# mypy>=1.7.0                   # Type checking
+# Optional: Development tools (commented out for lighter deployment)
+# pytest>=7.4.0
+# hypothesis>=6.90.0
+# memory-profiler>=0.60.0
