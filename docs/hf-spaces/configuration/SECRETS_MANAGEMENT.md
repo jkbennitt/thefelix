@@ -17,8 +17,8 @@ Configure the following secrets in your GitHub repository settings (`Settings > 
 | Secret Name | Description | Required | Example Value |
 |------------|-------------|----------|---------------|
 | `HF_TOKEN` | HuggingFace Pro API token | ✅ **Required** | `hf_xxxxxxxxxxxxxxxxxxxxx` |
-| `HF_SPACE_ID` | Production HF Spaces ID | ✅ **Required** | `CalebisGross/felix-framework` |
-| `HF_SPACE_ID_STAGING` | Staging HF Spaces ID | 🔶 **Optional** | `CalebisGross/felix-framework-staging` |
+| `HF_SPACE_ID` | Production HF Spaces ID | ✅ **Required** | `jkbennitt/felix-framework` |
+| `HF_SPACE_ID_STAGING` | Staging HF Spaces ID | 🔶 **Optional** | `jkbennitt/felix-framework-staging` |
 
 #### Extended Configuration (Optional)
 
@@ -74,7 +74,7 @@ Felix Framework leverages HF Pro account features:
 
 ```bash
 # Using HuggingFace CLI
-huggingface-cli repo create CalebisGross/felix-framework --type space --space_sdk gradio
+huggingface-cli repo create jkbennitt/felix-framework --type space --space_sdk gradio
 
 # Space metadata (automatically set by deployment)
 # Title: Felix Framework - ZeroGPU
@@ -86,7 +86,7 @@ huggingface-cli repo create CalebisGross/felix-framework --type space --space_sd
 #### Staging Space Setup (Optional)
 
 ```bash
-huggingface-cli repo create CalebisGross/felix-framework-staging --type space --space_sdk gradio
+huggingface-cli repo create jkbennitt/felix-framework-staging --type space --space_sdk gradio
 ```
 
 ### Space Visibility Options
@@ -105,8 +105,8 @@ These are automatically set by HF Spaces infrastructure:
 
 ```bash
 # Automatically provided by HF Spaces
-SPACE_ID="CalebisGross/felix-framework"
-SPACE_AUTHOR_NAME="CalebisGross"
+SPACE_ID="jkbennitt/felix-framework"
+SPACE_AUTHOR_NAME="jkbennitt"
 SPACES_ZERO_GPU="true"  # Indicates ZeroGPU availability
 HF_HOME="/tmp/.cache/huggingface"  # HF cache directory
 ```
@@ -275,7 +275,7 @@ curl -H "Authorization: Bearer $HF_TOKEN" https://huggingface.co/api/whoami
 huggingface-cli whoami
 
 # Check Space status
-huggingface-cli repo info spaces/CalebisGross/felix-framework
+huggingface-cli repo info spaces/jkbennitt/felix-framework
 
 # Test deployment pipeline
 github-actions-cli workflow run "HF Spaces ZeroGPU Deployment"
@@ -330,7 +330,7 @@ jobs:
 ```python
 # Continuous monitoring script
 async def monitor_deployment_health():
-    space_url = "https://CalebisGross-felix-framework.hf.space"
+    space_url = "https://jkbennitt-felix-framework.hf.space"
 
     # Check space accessibility
     response = await aiohttp.get(f"{space_url}/health")
@@ -401,7 +401,7 @@ async def monitor_deployment_health():
 1. **Diagnosis**
    ```bash
    # Check Space status
-   curl -I https://CalebisGross-felix-framework.hf.space
+   curl -I https://jkbennitt-felix-framework.hf.space
 
    # Check HF API status
    curl -I https://api-inference.huggingface.co/status

@@ -5,7 +5,7 @@
 ## 🚀 Quick Deploy Options
 
 ### Option 1: One-Click Duplicate (Recommended)
-**[🚀 Deploy Felix Framework to Your Space](https://huggingface.co/spaces/CalebisGross/felix-framework?duplicate=true)**
+**[🚀 Deploy Felix Framework to Your Space](https://huggingface.co/spaces/jkbennitt/felix-framework?duplicate=true)**
 
 This creates a copy of Felix Framework in your HF account with all dependencies configured.
 
@@ -269,7 +269,7 @@ GET /system-info -> {"platform": "...", "gpu_info": {...}}
 
 ## 📚 Additional Resources
 
-- **[Felix Framework Repository](https://github.com/CalebisGross/thefelix)**
+- **[Felix Framework Repository](https://github.com/jkbennitt/thefelix)**
 - **[Research Documentation](./RESEARCH_LOG.md)**
 - **[Mathematical Model](./docs/architecture/core/mathematical_model.md)**
 - **[HuggingFace Spaces Documentation](https://huggingface.co/docs/hub/spaces)**

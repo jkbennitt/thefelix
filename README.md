@@ -4,7 +4,7 @@ emoji: 🌪️
 colorFrom: blue
 colorTo: purple
 sdk: gradio
-sdk_version: 4.15.0
+sdk_version: 5.46.1
 app_file: app.py
 pinned: false
 license: mit
@@ -108,7 +108,7 @@ Felix Framework is built on rigorous research with validated mathematical models
 Want to explore the code or contribute? Check out the full repository:
 
 ```bash
-git clone https://github.com/CalebisGross/thefelix.git
+git clone https://github.com/jkbennitt/thefelix.git
 cd thefelix
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
@@ -122,10 +122,11 @@ python examples/blog_writer.py "Your topic here"
 
 ## 📚 Documentation
 
-- **[HF Spaces Deployment Guide](./docs/hf-spaces/guides/README_HF_SPACES.md)** - Deploy your own Felix Space
+- **[HF Spaces Deployment Guide](./docs/hf-spaces/guides/deployment-guide.md)** - Deploy your own Felix Space
+- **[Complete Documentation Hub](./docs/README.md)** - Navigation to all documentation
+- **[Project Summary](./docs/PROJECT_INDEX.md)** - Executive overview and status
 - **[Research Documentation](./RESEARCH_LOG.md)** - Complete research journey
 - **[Mathematical Model](./docs/architecture/core/mathematical_model.md)** - Formal geometric foundations
-- **[API Reference](./docs/reference/)** - Complete API documentation
 
 ## 🤝 Contributing
 

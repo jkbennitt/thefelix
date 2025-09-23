@@ -4,7 +4,7 @@ This document provides comprehensive instructions for deploying Felix Framework 
 
 ## Quick Deploy to HuggingFace Spaces
 
-[![Deploy to HF Spaces](https://huggingface.co/datasets/huggingface/badges/raw/main/deploy-to-spaces-lg.svg)](https://huggingface.co/spaces?sdk=gradio&template=git&owner=YOUR_USERNAME&repo=https://github.com/CalebisGross/thefelix)
+[![Deploy to HF Spaces](https://huggingface.co/datasets/huggingface/badges/raw/main/deploy-to-spaces-lg.svg)](https://huggingface.co/spaces?sdk=gradio&template=git&owner=YOUR_USERNAME&repo=https://github.com/jkbennitt/thefelix)
 
 ## 📋 Prerequisites
 
@@ -15,7 +15,7 @@ This document provides comprehensive instructions for deploying Felix Framework 
 
 ### 2. Repository Preparation
 ```bash
-git clone https://github.com/CalebisGross/thefelix.git
+git clone https://github.com/jkbennitt/thefelix.git
 cd thefelix
 ```
 
@@ -60,7 +60,7 @@ cd thefelix
 
 1. **Fork Repository**
    ```bash
-   gh repo fork CalebisGross/thefelix --clone
+   gh repo fork jkbennitt/thefelix --clone
    cd thefelix
    ```
 
@@ -325,7 +325,7 @@ GET /system-info -> {"platform": "...", "gpu_info": {...}}
 
 ## 🔗 Additional Resources
 
-- **GitHub Repository**: https://github.com/CalebisGross/thefelix
+- **GitHub Repository**: https://github.com/jkbennitt/thefelix
 - **Research Documentation**: [RESEARCH_LOG.md](RESEARCH_LOG.md)
 - **Mathematical Model**: [Mathematical Model Documentation](docs/architecture/core/mathematical_model.md)
 - **HuggingFace Spaces Documentation**: https://huggingface.co/docs/hub/spaces
@@ -334,7 +334,7 @@ GET /system-info -> {"platform": "...", "gpu_info": {...}}
 ## 📞 Support
 
 For deployment issues or questions:
-1. Check the [GitHub Issues](https://github.com/CalebisGross/thefelix/issues)
+1. Check the [GitHub Issues](https://github.com/jkbennitt/thefelix/issues)
 2. Review [Troubleshooting](#troubleshooting) section
 3. Contact the development team
 
