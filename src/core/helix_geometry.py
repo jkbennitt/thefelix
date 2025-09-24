@@ -106,7 +106,21 @@ class HelixGeometry:
         y = radius * math.sin(angle_radians)
         
         return (x, y, z)
-    
+
+    def get_position_at_t(self, t: float) -> Tuple[float, float, float]:
+        """
+        Alias for get_position method to maintain API consistency.
+
+        Calculate 3D position along helix path at parameter t.
+
+        Args:
+            t: Parameter value between 0 (bottom) and 1 (top)
+
+        Returns:
+            Tuple of (x, y, z) coordinates
+        """
+        return self.get_position(t)
+
     def get_radius(self, z: float) -> float:
         """
         Calculate radius at given height using exponential tapering.
