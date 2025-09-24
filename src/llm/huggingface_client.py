@@ -551,7 +551,6 @@ Your Role Based on Position:
 
     # ZeroGPU-specific methods
 
-    @spaces.GPU
     async def _zerogpu_inference(self, model_id: str, prompt: str,
                                generation_params: Dict[str, Any]) -> Dict[str, Any]:
         """
