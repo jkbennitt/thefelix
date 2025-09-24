@@ -4,7 +4,7 @@ emoji: 🌪️
 colorFrom: blue
 colorTo: purple
 sdk: gradio
-sdk_version: 5.46.1
+sdk_version: 5.46.0
 app_file: app.py
 pinned: false
 license: mit
@@ -21,7 +21,6 @@ tags:
 models:
    - microsoft/DialoGPT-large
    - meta-llama/Llama-3.1-8B-Instruct
-   - meta-llama/Llama-3.1-13B-Instruct
    - Qwen/Qwen2.5-7B-Instruct
 datasets:
    - research-data

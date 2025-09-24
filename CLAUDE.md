@@ -283,3 +283,5 @@ sphinx>=7.1.0, sphinx-rtd-theme>=1.3.0
 5. Preserve failed experiments in `experiments/failed/`
 
 The framework demonstrates that geometric-based multi-agent coordination offers measurable advantages in task distribution and memory efficiency while providing an intuitive "spiral to consensus" mental model for complex orchestration tasks.
+
+- git push origin hf-space; git push space hf-space:main

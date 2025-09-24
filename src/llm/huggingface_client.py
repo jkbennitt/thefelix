@@ -166,13 +166,13 @@ class HuggingFaceClient:
             priority="high"  # Pro account priority for analysis
         ),
         ModelType.SYNTHESIS: HFModelConfig(
-            model_id="meta-llama/Llama-3.1-13B-Instruct",  # High-quality synthesis
+            model_id="Qwen/Qwen2.5-7B-Instruct",  # ZeroGPU-compatible synthesis (fits in 24GB)
             temperature=0.1,
             max_tokens=768,
             use_zerogpu=True,
             batch_size=1,
             torch_dtype="float16",
-            gpu_memory_limit=12.0,  # Need more memory for 13B model
+            gpu_memory_limit=8.0,  # 7B model fits comfortably
             priority="high"
         ),
         ModelType.CRITIC: HFModelConfig(
@@ -351,9 +351,12 @@ class HuggingFaceClient:
         Raises:
             HuggingFaceConnectionError: If cannot connect to HuggingFace
         """
-        # Run async method synchronously
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Run async method synchronously (check for existing loop)
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         try:
             # Map model to agent type
             agent_type = self._map_model_to_agent_type(model, agent_id)
@@ -1145,7 +1148,6 @@ Your Role Based on Position:
 
         return results
 
-    @spaces.GPU
     async def _zerogpu_batch_inference(self, model_id: str, prompts: List[str], generation_params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Process multiple prompts in a single ZeroGPU session for efficiency.
@@ -1276,14 +1278,14 @@ def create_felix_hf_client(token_budget: int = 50000,
             priority="high"  # Pro account priority
         ),
         ModelType.SYNTHESIS: HFModelConfig(
-            model_id="meta-llama/Llama-3.1-13B-Instruct",  # High-quality synthesis
+            model_id="Qwen/Qwen2.5-7B-Instruct",  # ZeroGPU-compatible synthesis (fits in 24GB)
             temperature=0.1,
             max_tokens=512,
             top_p=0.85,
             use_zerogpu=True,
             batch_size=1,
             torch_dtype="float16",
-            gpu_memory_limit=12.0,  # Need more memory for 13B model
+            gpu_memory_limit=8.0,  # 7B model fits comfortably
             priority="high"
         ),
         ModelType.CRITIC: HFModelConfig(
@@ -1337,21 +1339,21 @@ def get_pro_account_models() -> Dict[ModelType, HFModelConfig]:
             priority="high"
         ),
         ModelType.ANALYSIS: HFModelConfig(
-            model_id="meta-llama/Llama-3.1-70B-Instruct",  # Large model for complex analysis
+            model_id="meta-llama/Llama-3.1-8B-Instruct",  # ZeroGPU-compatible analysis (fits in 24GB)
             temperature=0.5,
             max_tokens=512,
             use_zerogpu=True,
             batch_size=1,
-            gpu_memory_limit=40.0,  # Need significant memory
+            gpu_memory_limit=10.0,  # 8B model fits in ZeroGPU
             priority="high"
         ),
         ModelType.SYNTHESIS: HFModelConfig(
-            model_id="meta-llama/Llama-3.1-70B-Instruct",  # Best quality synthesis
+            model_id="Qwen/Qwen2.5-7B-Instruct",  # ZeroGPU-compatible synthesis (fits in 24GB)
             temperature=0.1,
             max_tokens=768,
             use_zerogpu=True,
             batch_size=1,
-            gpu_memory_limit=40.0,
+            gpu_memory_limit=8.0,  # 7B model fits in ZeroGPU
             priority="high"
         ),
         ModelType.CRITIC: HFModelConfig(
