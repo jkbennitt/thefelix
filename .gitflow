@@ -1,0 +1,16 @@
+# Git Flow Configuration for Felix Framework
+# This configures the branching strategy for development vs deployment
+
+[gitflow "branch"]
+master = main
+develop = develop
+
+[gitflow "prefix"]
+feature = feature/
+release = release/
+hotfix = hotfix/
+support = support/
+versiontag = v
+
+[gitflow "path"]
+hooks = .git/hooks

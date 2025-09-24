@@ -1,0 +1,178 @@
+# Pre-commit hooks for Felix Framework
+# Ensures code quality, security, and consistency before commits
+
+repos:
+  # Code formatting and style
+  - repo: https://github.com/psf/black
+    rev: 23.9.1
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: [--line-length=100]
+        files: ^(src|deployment|tests)/.*\.py$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=100]
+        files: ^(src|deployment|tests)/.*\.py$
+
+  # Linting and type checking
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=100, --ignore=E203,W503,E501]
+        files: ^(src|deployment|tests)/.*\.py$
+        additional_dependencies:
+          - flake8-docstrings
+          - flake8-import-order
+          - flake8-bugbear
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.6.0
+    hooks:
+      - id: mypy
+        args: [--ignore-missing-imports, --strict]
+        files: ^(src|deployment)/.*\.py$
+        additional_dependencies: [types-all]
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, -f, json, -o, bandit-report.json]
+        files: ^(src|deployment)/.*\.py$
+        exclude: ^tests/
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      # File formatting
+      - id: trailing-whitespace
+        exclude: ^(.*\.md|.*\.txt)$
+      - id: end-of-file-fixer
+        exclude: ^(.*\.md|.*\.txt)$
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+      # JSON/YAML validation
+      - id: check-json
+      - id: check-yaml
+        args: [--unsafe]  # For GitHub Actions YAML
+      - id: check-toml
+
+      # Large files and merges
+      - id: check-added-large-files
+        args: [--maxkb=1024]  # 1MB limit
+      - id: check-merge-conflict
+
+      # Security and best practices
+      - id: check-private-key
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # Docker and containerization
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009]
+
+  # Documentation
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: [--convention=google]
+        files: ^src/.*\.py$
+
+  # Dependency scanning
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        files: requirements.*\.txt$
+
+  # Git hooks
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.10.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  # Felix Framework specific hooks
+  - repo: local
+    hooks:
+      # Mathematical validation
+      - id: validate-mathematics
+        name: Validate Felix mathematical model
+        entry: python tests/validation/validate_mathematics.py
+        language: python
+        files: ^src/core/helix_geometry\.py$
+        pass_filenames: false
+
+      # Test coverage check
+      - id: test-coverage
+        name: Ensure minimum test coverage
+        entry: bash -c 'python -m pytest tests/unit/ --cov=src --cov-fail-under=80 --quiet || (echo "❌ Test coverage below 80%" && exit 1)'
+        language: system
+        files: ^(src|tests)/.*\.py$
+        pass_filenames: false
+
+      # Performance regression check
+      - id: performance-check
+        name: Check for performance regressions
+        entry: bash -c 'python -m pytest tests/performance/ --benchmark-only --benchmark-compare=.benchmarks/previous.json --benchmark-compare-fail=mean:20% || echo "⚠️  Performance regression detected"'
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: false
+        stages: [pre-push]
+
+      # Security audit
+      - id: security-audit
+        name: Felix Framework security audit
+        entry: bash -c 'python scripts/security_audit.py || (echo "❌ Security vulnerabilities detected" && exit 1)'
+        language: system
+        files: ^(src|deployment)/.*\.py$
+        pass_filenames: false
+
+      # Documentation sync
+      - id: docs-sync
+        name: Synchronize documentation with code changes
+        entry: python scripts/update_documentation.py
+        language: python
+        files: ^src/.*\.py$
+        pass_filenames: false
+
+      # HF Spaces configuration validation
+      - id: hf-spaces-config
+        name: Validate HF Spaces configuration
+        entry: python scripts/validate_hf_config.py
+        language: python
+        files: ^(app\.py|requirements.*\.txt|Dockerfile)$
+        pass_filenames: false
+
+# Configuration
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
+fail_fast: false
+minimum_pre_commit_version: 3.0.0
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: develop
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [validate-mathematics, test-coverage, performance-check, security-audit]
+  submodules: false

@@ -1,0 +1,426 @@
+# GitHub Actions CI/CD Pipeline for Felix Framework
+# Automated testing, security scanning, and deployment to Hugging Face Spaces
+
+name: Felix Framework CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '18'
+
+jobs:
+  # Code Quality and Security Scanning
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality & Security
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-deployment.txt
+        pip install bandit safety black isort flake8 mypy
+
+    - name: Code formatting check (Black)
+      run: black --check --diff src/ deployment/ tests/
+
+    - name: Import sorting check (isort)
+      run: isort --check-only --diff src/ deployment/ tests/
+
+    - name: Linting (flake8)
+      run: flake8 src/ deployment/ tests/ --max-line-length=100 --ignore=E203,W503
+
+    - name: Type checking (mypy)
+      run: mypy src/ deployment/ --ignore-missing-imports
+
+    - name: Security check (Bandit)
+      run: bandit -r src/ deployment/ -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Dependency vulnerability check (Safety)
+      run: safety check --json --output safety-report.json
+      continue-on-error: true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # Unit and Integration Tests
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    name: Tests (Python ${{ matrix.python-version }})
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements*.txt') }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-deployment.txt
+        pip install pytest-xdist pytest-benchmark pytest-mock
+
+    - name: Run unit tests
+      run: |
+        python -m pytest tests/unit/ -v \
+          --cov=src \
+          --cov=deployment \
+          --cov-report=xml \
+          --cov-report=html \
+          --junitxml=pytest-report.xml \
+          -n auto
+
+    - name: Run integration tests
+      run: |
+        python -m pytest tests/integration/ -v \
+          --timeout=300 \
+          --junitxml=integration-report.xml
+
+    - name: Run validation tests
+      run: |
+        python tests/validation/validate_mathematics.py
+        python tests/validation/validate_felix_framework.py
+
+    - name: Upload test reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-reports-python${{ matrix.python-version }}
+        path: |
+          pytest-report.xml
+          integration-report.xml
+          htmlcov/
+          .coverage
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.12'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Performance Benchmarks
+  benchmark:
+    runs-on: ubuntu-latest
+    name: Performance Benchmarks
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-deployment.txt
+
+    - name: Run performance benchmarks
+      run: |
+        python -m pytest tests/performance/ -v \
+          --benchmark-only \
+          --benchmark-json=benchmark-results.json
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: benchmark-results.json
+
+    - name: Performance regression check
+      uses: benchmark-action/github-action-benchmark@v1
+      if: github.ref == 'refs/heads/main'
+      with:
+        tool: 'pytest'
+        output-file-path: benchmark-results.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+
+  # Docker Build and Test
+  docker:
+    runs-on: ubuntu-latest
+    name: Docker Build & Test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        target: runtime
+        push: false
+        tags: felix-framework:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker image
+      run: |
+        # Start container
+        docker run -d --name felix-test \
+          -p 7860:7860 \
+          -e ENVIRONMENT=test \
+          felix-framework:test
+
+        # Wait for startup
+        sleep 30
+
+        # Health check
+        curl -f http://localhost:7860/health || exit 1
+
+        # Stop container
+        docker stop felix-test
+
+    - name: Docker security scan
+      uses: anchore/scan-action@v3
+      with:
+        image: felix-framework:test
+        fail-build: false
+        severity-cutoff: high
+
+  # Deployment to Hugging Face Spaces
+  deploy-hf-spaces:
+    runs-on: ubuntu-latest
+    name: Deploy to HF Spaces
+    needs: [code-quality, test, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install Hugging Face Hub
+      run: |
+        pip install huggingface_hub[cli]
+
+    - name: Create Space configuration
+      run: |
+        cat > README.md << 'EOF'
+        ---
+        title: Felix Framework
+        emoji: 🌀
+        colorFrom: blue
+        colorTo: purple
+        sdk: docker
+        pinned: false
+        license: mit
+        short_description: Helix-based Multi-Agent Cognitive Architecture
+        ---
+
+        # Felix Framework
+
+        A helix-based multi-agent cognitive architecture that serves as an alternative to LangGraph.
+        Felix Framework uses geometric orchestration where agents spawn and converge based on helix
+        geometry rather than explicit graph definitions.
+
+        ## Features
+
+        - **Geometric Orchestration**: Agents follow helix paths with natural convergence
+        - **Multi-Model LLM Support**: Integration with multiple LLM providers
+        - **O(N) Communication**: Efficient spoke-based agent communication
+        - **Research-Grade**: Statistical validation and mathematical precision
+        - **Production-Ready**: Comprehensive monitoring, security, and deployment
+
+        ## API Endpoints
+
+        - `GET /health` - Health check
+        - `POST /api/v1/process` - Process tasks with agent coordination
+        - `GET /api/v1/metrics` - Performance metrics
+        - `WebSocket /ws` - Real-time updates
+
+        Built with FastAPI, deployed on Hugging Face Spaces.
+        EOF
+
+    - name: Create app.py for HF Spaces
+      run: |
+        cat > app.py << 'EOF'
+        #!/usr/bin/env python3
+        """
+        Hugging Face Spaces entry point for Felix Framework.
+        """
+        import os
+        import sys
+
+        # Add source directory to path
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+
+        # Set environment for HF Spaces
+        os.environ.setdefault('ENVIRONMENT', 'production')
+        os.environ.setdefault('LOG_LEVEL', 'INFO')
+        os.environ.setdefault('PORT', '7860')
+
+        # Import and run the web service
+        from deployment.web_service import app
+
+        if __name__ == "__main__":
+            import uvicorn
+            uvicorn.run(
+                app,
+                host="0.0.0.0",
+                port=int(os.environ.get("PORT", 7860)),
+                log_level="info"
+            )
+        EOF
+
+    - name: Deploy to Hugging Face Spaces
+      env:
+        HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        HF_SPACE_ID: ${{ secrets.HF_SPACE_ID || 'felix-framework/felix-framework' }}
+      run: |
+        # Login to Hugging Face
+        huggingface-cli login --token $HF_TOKEN
+
+        # Create or update space
+        huggingface-cli repo create $HF_SPACE_ID --type space --space_sdk docker || true
+
+        # Push to space
+        git remote add hf https://huggingface.co/spaces/$HF_SPACE_ID || true
+        git add .
+        git commit -m "Deploy Felix Framework v${{ github.sha }}" || true
+        git push hf main --force
+
+    - name: Wait for deployment
+      run: |
+        echo "Waiting for deployment to complete..."
+        sleep 60
+
+    - name: Test deployed application
+      env:
+        HF_SPACE_ID: ${{ secrets.HF_SPACE_ID || 'felix-framework/felix-framework' }}
+      run: |
+        # Test health endpoint
+        curl -f "https://$HF_SPACE_ID.hf.space/health" || exit 1
+        echo "Deployment successful!"
+
+  # Release Management
+  release:
+    runs-on: ubuntu-latest
+    name: Create Release
+    needs: [code-quality, test, docker]
+    if: github.event_name == 'release'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Build distribution packages
+      run: |
+        pip install build
+        python -m build
+
+    - name: Create deployment artifacts
+      run: |
+        # Create deployment package
+        tar -czf felix-framework-${{ github.event.release.tag_name }}.tar.gz \
+          src/ deployment/ config/ requirements*.txt Dockerfile docker-compose.yml
+
+        # Create checksums
+        sha256sum felix-framework-${{ github.event.release.tag_name }}.tar.gz > checksums.txt
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: felix-framework-${{ github.event.release.tag_name }}.tar.gz
+        asset_name: felix-framework-${{ github.event.release.tag_name }}.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload checksums
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: checksums.txt
+        asset_name: checksums.txt
+        asset_content_type: text/plain
+
+  # Notification
+  notify:
+    runs-on: ubuntu-latest
+    name: Notifications
+    needs: [deploy-hf-spaces]
+    if: always()
+
+    steps:
+    - name: Notify on success
+      if: needs.deploy-hf-spaces.result == 'success'
+      run: |
+        echo "✅ Felix Framework deployed successfully to Hugging Face Spaces"
+
+    - name: Notify on failure
+      if: needs.deploy-hf-spaces.result == 'failure'
+      run: |
+        echo "❌ Felix Framework deployment failed"
+        exit 1

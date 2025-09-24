@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir)",
+      "Bash(find:*)",
+      "mcp__hf-mcp-server__hf_doc_search",
+      "Bash(dir \"C:\\Users\\redmo\\Projects\\thefelix\")",
+      "mcp__hf-mcp-server__hf_whoami",
+      "Bash(mkdir:*)",
+      "Bash(python:*)",
+      "mcp__hf-mcp-server__space_search",
+      "Bash(git checkout:*)",
+      "Bash(dir:*)",
+      "Bash(git config:*)",
+      "Bash(cat:*)",
+      "mcp__hf-mcp-server__model_search",
+      "Bash(source:*)",
+      "Bash(.venv/Scripts/activate)",
+      "Bash(grep:*)",
+      "Bash(pip install:*)",
+      "Bash(xargs ls:*)",
+      "Bash(for file in frontend/components/*.ts)",
+      "Bash(done)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

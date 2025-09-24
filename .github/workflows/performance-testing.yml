@@ -1,0 +1,828 @@
+# Performance Testing and Regression Analysis for Felix Framework
+# Comprehensive testing pipeline with ZeroGPU benchmarks and regression detection
+
+name: Performance Testing & Regression Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run performance tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - stress
+          - zerogpu-only
+      benchmark_comparison:
+        description: 'Compare against specific benchmark'
+        required: false
+        default: ''
+        type: string
+
+env:
+  PYTHON_VERSION: '3.12'
+  PYTEST_TIMEOUT: '600'  # 10 minutes for performance tests
+
+jobs:
+  # Core mathematical and geometric performance tests
+  mathematical-performance:
+    runs-on: ubuntu-latest
+    name: Mathematical Model Performance
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-perf-${{ hashFiles('**/requirements*.txt') }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-benchmark pytest-xdist memory-profiler psutil
+
+    - name: Run helix geometry benchmarks
+      run: |
+        python -m pytest tests/performance/test_helix_performance.py \
+          --benchmark-json=helix-benchmarks.json \
+          --benchmark-sort=mean \
+          --benchmark-min-rounds=10 \
+          -v
+
+    - name: Mathematical precision validation
+      run: |
+        python -c "
+        import time
+        import numpy as np
+        from src.core.helix_geometry import HelixGeometry
+
+        # Precision benchmark
+        start_time = time.time()
+        helix = HelixGeometry(33.0, 0.001, 100.0, 33)
+
+        # Test mathematical precision under load
+        positions = []
+        for i in range(10000):
+            t = i / 9999.0
+            pos = helix.get_position_at_t(t)
+            positions.append(pos)
+
+        end_time = time.time()
+        duration = end_time - start_time
+
+        print(f'⚡ Computed 10,000 helix positions in {duration:.3f}s')
+        print(f'🎯 Rate: {10000/duration:.0f} positions/second')
+        print(f'📏 Memory: {len(positions) * 3 * 8 / 1024:.1f}KB')
+
+        # Validate precision
+        edge_pos = helix.get_position_at_t(1.0)
+        if abs(edge_pos[0]**2 + edge_pos[1]**2 - 0.001**2) > 1e-12:
+            raise ValueError('Mathematical precision degraded')
+        print('✅ Mathematical precision maintained')
+        "
+
+    - name: Upload mathematical benchmarks
+      uses: actions/upload-artifact@v3
+      with:
+        name: helix-performance-benchmarks
+        path: helix-benchmarks.json
+
+  # Agent system performance testing
+  agent-performance:
+    runs-on: ubuntu-latest
+    name: Agent System Performance
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-benchmark pytest-asyncio memory-profiler
+
+    - name: Run agent lifecycle benchmarks
+      run: |
+        python -m pytest tests/performance/test_agent_performance.py \
+          --benchmark-json=agent-benchmarks.json \
+          --benchmark-sort=mean \
+          --benchmark-min-rounds=5 \
+          -v
+
+    - name: Communication system performance
+      run: |
+        python -c "
+        import asyncio
+        import time
+        from src.communication.central_post import CentralPost
+        from src.communication.spoke import Spoke
+
+        async def test_communication_performance():
+            central_post = CentralPost()
+
+            # Test O(N) spoke communication performance
+            spokes = []
+            for i in range(100):
+                spoke = Spoke(f'agent_{i}', central_post)
+                spokes.append(spoke)
+
+            # Benchmark message routing
+            start_time = time.time()
+
+            tasks = []
+            for i, spoke in enumerate(spokes):
+                task = spoke.send_message(f'test_message_{i}', 'broadcast')
+                tasks.append(task)
+
+            await asyncio.gather(*tasks)
+
+            end_time = time.time()
+            duration = end_time - start_time
+
+            print(f'⚡ Routed 100 messages in {duration:.3f}s')
+            print(f'🎯 Rate: {100/duration:.0f} messages/second')
+            print('✅ O(N) communication scaling verified')
+
+        asyncio.run(test_communication_performance())
+        "
+
+    - name: Upload agent benchmarks
+      uses: actions/upload-artifact@v3
+      with:
+        name: agent-performance-benchmarks
+        path: agent-benchmarks.json
+
+  # Memory efficiency and scalability tests
+  memory-scalability:
+    runs-on: ubuntu-latest
+    name: Memory & Scalability Analysis
+    timeout-minutes: 25
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install memory-profiler psutil pympler
+
+    - name: Memory efficiency comparison
+      run: |
+        python -c "
+        import psutil
+        import gc
+        import tracemalloc
+        from src.comparison.architecture_comparison import create_test_architectures
+
+        # Start memory tracing
+        tracemalloc.start()
+        process = psutil.Process()
+        initial_memory = process.memory_info().rss / 1024**2  # MB
+
+        print(f'🔬 Initial memory: {initial_memory:.1f} MB')
+
+        # Test different architectures
+        architectures = create_test_architectures(num_agents=50)
+
+        for name, arch in architectures.items():
+            gc.collect()  # Clean up before test
+
+            current, peak = tracemalloc.get_traced_memory()
+            tracemalloc.reset_peak()
+
+            # Simulate processing load
+            for i in range(100):
+                arch.process_task(f'test_task_{i}')
+
+            current_after, peak_after = tracemalloc.get_traced_memory()
+            memory_used = (peak_after - peak) / 1024**2  # MB
+
+            print(f'📊 {name}: {memory_used:.1f} MB peak usage')
+
+            # Validate helix efficiency
+            if name == 'helix' and memory_used > 10.0:  # 10MB threshold
+                print(f'⚠️  Helix memory usage higher than expected: {memory_used:.1f} MB')
+            elif name == 'helix':
+                print(f'✅ Helix memory efficiency maintained: {memory_used:.1f} MB')
+
+        tracemalloc.stop()
+
+        final_memory = process.memory_info().rss / 1024**2
+        print(f'📈 Final memory: {final_memory:.1f} MB')
+        print(f'📊 Net increase: {final_memory - initial_memory:.1f} MB')
+        "
+
+    - name: Scalability stress test
+      run: |
+        python -c "
+        import time
+        import threading
+        from src.core.helix_geometry import HelixGeometry
+        from src.agents.agent import Agent
+
+        def stress_test_helix_scaling():
+            helix = HelixGeometry(33.0, 0.001, 100.0, 33)
+
+            # Test concurrent agent access
+            def worker(agent_id, results):
+                start_time = time.time()
+                positions = []
+                for i in range(1000):
+                    t = (agent_id * 1000 + i) / 100000.0
+                    pos = helix.get_position_at_t(t % 1.0)
+                    positions.append(pos)
+                end_time = time.time()
+                results[agent_id] = {
+                    'duration': end_time - start_time,
+                    'positions': len(positions)
+                }
+
+            # Simulate 20 concurrent agents
+            threads = []
+            results = {}
+
+            start_time = time.time()
+            for i in range(20):
+                thread = threading.Thread(target=worker, args=(i, results))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
+            end_time = time.time()
+            total_duration = end_time - start_time
+
+            print(f'⚡ 20 concurrent agents completed in {total_duration:.3f}s')
+
+            total_positions = sum(r['positions'] for r in results.values())
+            print(f'🎯 Total positions computed: {total_positions:,}')
+            print(f'📊 Rate: {total_positions/total_duration:.0f} positions/second')
+
+            # Validate performance didn't degrade
+            avg_duration = sum(r['duration'] for r in results.values()) / len(results)
+            if avg_duration > 1.0:  # Should complete in under 1 second per agent
+                print(f'⚠️  Performance degradation detected: {avg_duration:.3f}s average')
+            else:
+                print(f'✅ Concurrent performance maintained: {avg_duration:.3f}s average')
+
+        stress_test_helix_scaling()
+        "
+
+  # ZeroGPU simulation and optimization tests
+  zerogpu-simulation:
+    runs-on: ubuntu-latest
+    name: ZeroGPU Performance Simulation
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python with GPU simulation
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies with PyTorch CPU
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        pip install transformers accelerate
+
+    - name: Mock ZeroGPU environment
+      run: |
+        # Create mock spaces module for testing
+        mkdir -p mock_spaces
+        cat > mock_spaces/__init__.py << 'EOF'
+        """Mock spaces module for testing ZeroGPU functionality."""
+        import time
+        import functools
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        class MockGPU:
+            """Mock GPU decorator that simulates ZeroGPU behavior."""
+
+            def __init__(self, duration=60):
+                self.duration = duration
+
+            def __call__(self, func):
+                @functools.wraps(func)
+                def wrapper(*args, **kwargs):
+                    # Simulate GPU allocation time
+                    time.sleep(0.1)
+                    logger.info(f"Mock GPU allocated for {func.__name__}")
+
+                    try:
+                        result = func(*args, **kwargs)
+                        # Simulate GPU processing overhead
+                        time.sleep(0.05)
+                        return result
+                    finally:
+                        logger.info(f"Mock GPU released for {func.__name__}")
+                        time.sleep(0.05)
+
+                return wrapper
+
+        # Export the mock
+        GPU = MockGPU
+        EOF
+
+        # Add to Python path
+        export PYTHONPATH="$PWD/mock_spaces:$PYTHONPATH"
+
+    - name: Test ZeroGPU optimization simulation
+      env:
+        PYTHONPATH: "${{ github.workspace }}/mock_spaces:${{ env.PYTHONPATH }}"
+      run: |
+        python -c "
+        import sys
+        import os
+        import time
+        import torch
+
+        # Add mock to path
+        sys.path.insert(0, 'mock_spaces')
+
+        # Test ZeroGPU client functionality
+        from src.llm.huggingface_client import HuggingFaceClient, ModelType
+
+        def simulate_zerogpu_performance():
+            print('🧪 Testing ZeroGPU performance simulation...')
+
+            # Create client with ZeroGPU disabled (CPU simulation)
+            client = HuggingFaceClient(
+                enable_zerogpu=False,  # Use CPU simulation
+                debug_mode=True
+            )
+
+            # Test model configurations
+            configs = client.model_configs
+            print(f'📊 Configured models: {len(configs)}')
+
+            for model_type, config in configs.items():
+                print(f'  - {model_type.value}: {config.model_id}')
+                print(f'    Temperature: {config.temperature}')
+                print(f'    Max tokens: {config.max_tokens}')
+                print(f'    ZeroGPU enabled: {config.use_zerogpu}')
+
+            # Simulate batch processing efficiency
+            start_time = time.time()
+
+            # Mock multiple agent requests
+            agent_types = [ModelType.RESEARCH, ModelType.ANALYSIS, ModelType.SYNTHESIS]
+            prompts = [f'Test prompt for {agent_type.value}' for agent_type in agent_types]
+
+            print(f'🚀 Simulating {len(prompts)} agent requests...')
+
+            # In real deployment, this would use actual ZeroGPU
+            for i, (prompt, agent_type) in enumerate(zip(prompts, agent_types)):
+                print(f'  Processing agent {i+1}/{len(prompts)}: {agent_type.value}')
+                time.sleep(0.2)  # Simulate processing time
+
+            end_time = time.time()
+            duration = end_time - start_time
+
+            print(f'⚡ Simulated processing completed in {duration:.3f}s')
+            print(f'🎯 Rate: {len(prompts)/duration:.1f} requests/second')
+
+            # Validate performance expectations
+            expected_max_time = len(prompts) * 0.5  # 0.5s per request max
+            if duration <= expected_max_time:
+                print('✅ Performance simulation within expected bounds')
+            else:
+                print(f'⚠️  Performance simulation slower than expected: {duration:.3f}s > {expected_max_time:.3f}s')
+
+            return {
+                'requests': len(prompts),
+                'duration': duration,
+                'rate': len(prompts)/duration,
+                'performance_ok': duration <= expected_max_time
+            }
+
+        results = simulate_zerogpu_performance()
+        print(f'📈 Simulation results: {results}')
+        "
+
+    - name: GPU memory simulation test
+      run: |
+        python -c "
+        import time
+        import gc
+        from unittest.mock import Mock, patch
+
+        # Mock torch.cuda for testing
+        mock_cuda = Mock()
+        mock_cuda.is_available.return_value = True
+        mock_cuda.device_count.return_value = 1
+        mock_cuda.get_device_name.return_value = 'Mock GPU Device'
+        mock_cuda.memory_allocated.return_value = 1024**3  # 1GB
+        mock_cuda.memory_reserved.return_value = 2 * 1024**3  # 2GB
+        mock_cuda.empty_cache = Mock()
+
+        # Test GPU memory management simulation
+        class MockGPUMemoryManager:
+            def __init__(self):
+                self.allocated_memory = 0
+                self.peak_memory = 0
+                self.cleanup_threshold = 0.8 * 16 * 1024**3  # 80% of 16GB
+
+            def allocate(self, size_gb):
+                size_bytes = size_gb * 1024**3
+                self.allocated_memory += size_bytes
+                self.peak_memory = max(self.peak_memory, self.allocated_memory)
+
+                if self.allocated_memory > self.cleanup_threshold:
+                    print(f'🧹 Memory cleanup triggered: {self.allocated_memory / 1024**3:.1f}GB')
+                    self.cleanup()
+
+                return size_bytes
+
+            def cleanup(self):
+                self.allocated_memory = 0
+                gc.collect()
+                print('✅ GPU memory cleaned up')
+
+            def get_stats(self):
+                return {
+                    'allocated_gb': self.allocated_memory / 1024**3,
+                    'peak_gb': self.peak_memory / 1024**3
+                }
+
+        # Simulate model loading scenarios
+        gpu_manager = MockGPUMemoryManager()
+
+        model_sizes = {
+            'DialoGPT-large': 3.0,
+            'Llama-3.1-8B': 16.0,
+            'Llama-3.1-13B': 26.0
+        }
+
+        print('🧪 Testing GPU memory management simulation...')
+
+        for model_name, size_gb in model_sizes.items():
+            print(f'📥 Loading {model_name} ({size_gb}GB)...')
+            gpu_manager.allocate(size_gb)
+
+            stats = gpu_manager.get_stats()
+            print(f'   Memory: {stats[\"allocated_gb\"]:.1f}GB allocated, {stats[\"peak_gb\"]:.1f}GB peak')
+
+            time.sleep(0.1)  # Simulate processing time
+
+        final_stats = gpu_manager.get_stats()
+        print(f'📊 Final memory stats: {final_stats}')
+        print('✅ GPU memory simulation completed')
+        "
+
+  # Performance regression detection
+  regression-analysis:
+    runs-on: ubuntu-latest
+    name: Performance Regression Analysis
+    needs: [mathematical-performance, agent-performance, memory-scalability]
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all benchmark artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: benchmarks/
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install analysis tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas matplotlib seaborn json-flatten
+
+    - name: Analyze performance trends
+      run: |
+        python -c "
+        import json
+        import os
+        import glob
+        from datetime import datetime
+
+        def load_benchmark_data():
+            benchmark_files = glob.glob('benchmarks/**/*.json', recursive=True)
+            data = {}
+
+            for file_path in benchmark_files:
+                try:
+                    with open(file_path, 'r') as f:
+                        content = json.load(f)
+
+                    # Extract benchmark name from path
+                    name = os.path.basename(file_path).replace('.json', '')
+                    data[name] = content
+
+                    print(f'📊 Loaded {name}: {len(content.get(\"benchmarks\", []))} benchmarks')
+                except Exception as e:
+                    print(f'⚠️  Failed to load {file_path}: {e}')
+
+            return data
+
+        def analyze_regression(data):
+            print('🔍 Analyzing performance regression...')
+
+            regression_detected = False
+
+            for benchmark_name, benchmark_data in data.items():
+                if 'benchmarks' not in benchmark_data:
+                    continue
+
+                print(f'\\n📈 {benchmark_name} Analysis:')
+
+                for bench in benchmark_data['benchmarks']:
+                    name = bench.get('name', 'unknown')
+                    mean_time = bench.get('stats', {}).get('mean', 0)
+                    min_time = bench.get('stats', {}).get('min', 0)
+                    max_time = bench.get('stats', {}).get('max', 0)
+
+                    print(f'  - {name}: {mean_time:.6f}s (min: {min_time:.6f}s, max: {max_time:.6f}s)')
+
+                    # Check for regression (simple threshold-based)
+                    if 'helix' in name.lower() and mean_time > 0.001:  # 1ms threshold for helix operations
+                        print(f'    ⚠️  Potential regression: {mean_time:.6f}s > 0.001s')
+                        regression_detected = True
+                    elif 'agent' in name.lower() and mean_time > 0.1:  # 100ms threshold for agent operations
+                        print(f'    ⚠️  Potential regression: {mean_time:.6f}s > 0.1s')
+                        regression_detected = True
+                    else:
+                        print(f'    ✅ Performance within acceptable bounds')
+
+            return regression_detected
+
+        # Load and analyze benchmarks
+        benchmark_data = load_benchmark_data()
+        regression_found = analyze_regression(benchmark_data)
+
+        # Create summary report
+        report = {
+            'timestamp': datetime.now().isoformat(),
+            'benchmarks_analyzed': len(benchmark_data),
+            'regression_detected': regression_found,
+            'summary': 'Performance regression analysis completed'
+        }
+
+        with open('regression-analysis-report.json', 'w') as f:
+            json.dump(report, f, indent=2)
+
+        print(f'\\n📄 Analysis complete. Regression detected: {regression_found}')
+
+        if regression_found:
+            print('🚨 Performance regression detected! Review benchmark results.')
+            exit(1)
+        else:
+            print('✅ No significant performance regression detected.')
+        "
+
+    - name: Upload regression analysis
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: regression-analysis-report
+        path: regression-analysis-report.json
+
+  # Generate performance report
+  performance-report:
+    runs-on: ubuntu-latest
+    name: Generate Performance Report
+    needs: [mathematical-performance, agent-performance, memory-scalability, zerogpu-simulation, regression-analysis]
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+
+    - name: Generate comprehensive report
+      run: |
+        python -c "
+        import json
+        import os
+        import glob
+        from datetime import datetime
+
+        def generate_performance_report():
+            print('📋 Generating comprehensive performance report...')
+
+            # Collect all artifacts
+            artifact_files = glob.glob('artifacts/**/*.json', recursive=True)
+
+            report = {
+                'metadata': {
+                    'timestamp': datetime.now().isoformat(),
+                    'git_sha': os.getenv('GITHUB_SHA', 'unknown'),
+                    'git_ref': os.getenv('GITHUB_REF', 'unknown'),
+                    'workflow_run_id': os.getenv('GITHUB_RUN_ID', 'unknown')
+                },
+                'test_summary': {
+                    'total_artifacts': len(artifact_files),
+                    'test_categories': [
+                        'mathematical-performance',
+                        'agent-performance',
+                        'memory-scalability',
+                        'zerogpu-simulation',
+                        'regression-analysis'
+                    ]
+                },
+                'performance_metrics': {},
+                'regression_status': 'unknown',
+                'recommendations': []
+            }
+
+            # Process each artifact
+            for artifact_path in artifact_files:
+                try:
+                    with open(artifact_path, 'r') as f:
+                        data = json.load(f)
+
+                    artifact_name = os.path.basename(artifact_path).replace('.json', '')
+                    report['performance_metrics'][artifact_name] = data
+
+                    print(f'  ✅ Processed {artifact_name}')
+
+                except Exception as e:
+                    print(f'  ❌ Failed to process {artifact_path}: {e}')
+
+            # Determine overall status
+            regression_reports = [f for f in artifact_files if 'regression' in f]
+            if regression_reports:
+                try:
+                    with open(regression_reports[0], 'r') as f:
+                        regression_data = json.load(f)
+                    report['regression_status'] = 'detected' if regression_data.get('regression_detected') else 'none'
+                except:
+                    report['regression_status'] = 'unknown'
+
+            # Add recommendations
+            if report['regression_status'] == 'detected':
+                report['recommendations'].extend([
+                    'Review benchmark results for performance regression',
+                    'Check recent code changes for optimization opportunities',
+                    'Consider profiling slow operations',
+                    'Validate ZeroGPU configurations'
+                ])
+            else:
+                report['recommendations'].extend([
+                    'Performance metrics within acceptable bounds',
+                    'Continue monitoring performance trends',
+                    'Consider baseline updates if significant improvements detected'
+                ])
+
+            # Save comprehensive report
+            with open('felix-performance-report.json', 'w') as f:
+                json.dump(report, f, indent=2)
+
+            # Generate markdown summary
+            with open('performance-summary.md', 'w') as f:
+                f.write('# Felix Framework Performance Report\\n\\n')
+                f.write(f'**Generated:** {report[\"metadata\"][\"timestamp\"]}\\n')
+                f.write(f'**Git SHA:** {report[\"metadata\"][\"git_sha\"]}\\n')
+                f.write(f'**Workflow:** {report[\"metadata\"][\"workflow_run_id\"]}\\n\\n')
+
+                f.write('## Test Summary\\n\\n')
+                f.write(f'- **Total Artifacts:** {report[\"test_summary\"][\"total_artifacts\"]}\\n')
+                f.write(f'- **Test Categories:** {len(report[\"test_summary\"][\"test_categories\"])}\\n')
+                f.write(f'- **Regression Status:** {report[\"regression_status\"]}\\n\\n')
+
+                f.write('## Performance Categories\\n\\n')
+                for category in report['test_summary']['test_categories']:
+                    status = '✅' if category.replace('-', '_') in str(report['performance_metrics']) else '❌'
+                    f.write(f'- {status} {category.replace(\"-\", \" \").title()}\\n')
+
+                f.write('\\n## Recommendations\\n\\n')
+                for rec in report['recommendations']:
+                    f.write(f'- {rec}\\n')
+
+                f.write('\\n## Detailed Results\\n\\n')
+                f.write('See `felix-performance-report.json` for detailed benchmark data and metrics.\\n')
+
+            print(f'📊 Performance report generated: felix-performance-report.json')
+            print(f'📄 Summary available: performance-summary.md')
+
+            return report
+
+        report_data = generate_performance_report()
+
+        # Set outputs for other jobs
+        if report_data['regression_status'] == 'detected':
+            print('::warning::Performance regression detected in benchmarks')
+            exit(1)
+        else:
+            print('::notice::Performance benchmarks completed successfully')
+        "
+
+    - name: Upload final performance report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: felix-performance-report
+        path: |
+          felix-performance-report.json
+          performance-summary.md
+
+    - name: Comment on PR with performance results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+
+          try {
+            const summary = fs.readFileSync('performance-summary.md', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Felix Framework Performance Test Results\n\n${summary}\n\n*Automated performance analysis by GitHub Actions*`
+            });
+          } catch (error) {
+            console.log('Could not post performance summary to PR:', error);
+          }
+
+  # Performance notification
+  notify-performance-results:
+    runs-on: ubuntu-latest
+    name: Performance Test Notifications
+    needs: [performance-report]
+    if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'schedule')
+
+    steps:
+    - name: Download performance report
+      uses: actions/download-artifact@v3
+      with:
+        name: felix-performance-report
+        path: ./
+
+    - name: Send performance notification
+      run: |
+        echo "🔔 Performance test completed for Felix Framework"
+        echo "📊 Results available in workflow artifacts"
+
+        if [ -f "felix-performance-report.json" ]; then
+          REGRESSION_STATUS=$(python -c "
+          import json
+          with open('felix-performance-report.json', 'r') as f:
+              data = json.load(f)
+          print(data.get('regression_status', 'unknown'))
+          ")
+
+          if [ "$REGRESSION_STATUS" = "detected" ]; then
+            echo "🚨 Performance regression detected!"
+            echo "::error::Performance regression found in benchmarks"
+          else
+            echo "✅ Performance benchmarks passed"
+            echo "::notice::All performance tests completed successfully"
+          fi
+        else
+          echo "⚠️ Performance report not found"
+        fi

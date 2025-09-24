@@ -1,0 +1,189 @@
+{
+  "benchmark_timestamp": 1755794471.531592,
+  "summary": {
+    "total_systems": 5,
+    "total_tests": 10,
+    "successful_tests": 10,
+    "success_rate": 1.0,
+    "total_execution_time": 0.3927116394042969,
+    "average_time_per_test": 0.03927116394042969
+  },
+  "system_results": [
+    {
+      "system_name": "Chunking System",
+      "tests": 2,
+      "successful": 2,
+      "success_rate": 1.0,
+      "total_time": 0.0005805492401123047,
+      "average_time": 0.00029027462005615234,
+      "detailed_results": [
+        {
+          "test_name": "basic_chunking",
+          "success": true,
+          "execution_time": 6.556510925292969e-05,
+          "metrics": {
+            "total_chunks": 18,
+            "content_length": 3500,
+            "chunk_size": 200,
+            "first_chunk_length": 200
+          },
+          "error": null
+        },
+        {
+          "test_name": "large_content_performance",
+          "success": true,
+          "execution_time": 0.0005102157592773438,
+          "metrics": {
+            "content_length": 39000,
+            "total_chunks": 78,
+            "processed_chunks": 78,
+            "avg_chunk_size": 500
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "system_name": "Knowledge Store",
+      "tests": 2,
+      "successful": 2,
+      "success_rate": 1.0,
+      "total_time": 0.348940372467041,
+      "average_time": 0.1744701862335205,
+      "detailed_results": [
+        {
+          "test_name": "basic_storage_retrieval",
+          "success": true,
+          "execution_time": 0.013666868209838867,
+          "metrics": {
+            "stored_entries": 1,
+            "retrieved_entries": 1,
+            "knowledge_id_match": true
+          },
+          "error": null
+        },
+        {
+          "test_name": "bulk_storage_performance",
+          "success": true,
+          "execution_time": 0.33500218391418457,
+          "metrics": {
+            "stored_entries": 100,
+            "retrieved_all": 100,
+            "retrieved_filtered": 10,
+            "storage_success_rate": 1.0
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "system_name": "Quality Metrics",
+      "tests": 2,
+      "successful": 2,
+      "success_rate": 1.0,
+      "total_time": 0.006365060806274414,
+      "average_time": 0.003182530403137207,
+      "detailed_results": [
+        {
+          "test_name": "basic_quality_assessment",
+          "success": true,
+          "execution_time": 0.0047566890716552734,
+          "metrics": {
+            "overall_score": 0.5741861655977176,
+            "coherence_score": 0.5365641896127235,
+            "accuracy_score": 0.7400000000000001,
+            "completeness_score": 0.4,
+            "clarity_score": 1.0,
+            "word_count": 43,
+            "sentence_count": 6,
+            "has_bleu_score": true
+          },
+          "error": null
+        },
+        {
+          "test_name": "batch_processing_performance",
+          "success": true,
+          "execution_time": 0.0016024112701416016,
+          "metrics": {
+            "texts_processed": 5,
+            "average_overall_score": 0.4317391205537615,
+            "score_range": 0.06846703134023618,
+            "all_valid_scores": true
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "system_name": "Prompt Optimization",
+      "tests": 2,
+      "successful": 2,
+      "success_rate": 1.0,
+      "total_time": 0.0007028579711914062,
+      "average_time": 0.0003514289855957031,
+      "detailed_results": [
+        {
+          "test_name": "basic_optimization",
+          "success": true,
+          "execution_time": 2.5510787963867188e-05,
+          "metrics": {
+            "base_prompt_length": 50,
+            "optimized_prompt_length": 113,
+            "improvement_ratio": 2.26,
+            "has_prompt_id": true,
+            "has_context": true
+          },
+          "error": null
+        },
+        {
+          "test_name": "performance_tracking",
+          "success": true,
+          "execution_time": 0.0005042552947998047,
+          "metrics": {
+            "prompts_created": 10,
+            "average_performance_records": 1,
+            "all_recorded_performance": true
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "system_name": "Integration Scenarios",
+      "tests": 2,
+      "successful": 2,
+      "success_rate": 1.0,
+      "total_time": 0.036122798919677734,
+      "average_time": 0.018061399459838867,
+      "detailed_results": [
+        {
+          "test_name": "chunking_quality_metrics",
+          "success": true,
+          "execution_time": 0.004618406295776367,
+          "metrics": {
+            "total_chunks": 4,
+            "chunks_with_quality": 4,
+            "average_chunk_quality": 0.4841007521795424,
+            "overall_quality_score": 0.6334789946158071,
+            "quality_consistency": 0.08460378601766294
+          },
+          "error": null
+        },
+        {
+          "test_name": "knowledge_quality_integration",
+          "success": true,
+          "execution_time": 0.0314791202545166,
+          "metrics": {
+            "content_pieces": 3,
+            "stored_entries": 3,
+            "quality_assessments": 3,
+            "high_quality_retrieved": 3,
+            "average_quality": 0.413016871229457,
+            "quality_range": 0.09715693779904305
+          },
+          "error": null
+        }
+      ]
+    }
+  ]
+}

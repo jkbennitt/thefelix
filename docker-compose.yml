@@ -1,0 +1,287 @@
+# Felix Framework - Development and Testing Docker Compose
+# Comprehensive development environment with monitoring and testing services
+
+version: '3.8'
+
+services:
+  # Main Felix Framework application
+  felix-framework:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        TORCH_VERSION: "2.0.1"
+        CUDA_VERSION: "cu118"
+    container_name: felix-framework-app
+    restart: unless-stopped
+
+    ports:
+      - "7860:7860"  # Main application port
+      - "8080:8080"  # Metrics/monitoring port
+
+    environment:
+      - ENVIRONMENT=development
+      - FELIX_DEBUG=true
+      - FELIX_TOKEN_BUDGET=10000
+      - PORT=7860
+      - METRICS_PORT=8080
+      # HF_TOKEN should be set via .env file or environment
+      - HF_TOKEN=${HF_TOKEN:-}
+      - SPACES_ZERO_GPU=false  # Set to true for ZeroGPU testing
+
+    volumes:
+      # Development volume mounts
+      - ./src:/app/src:ro  # Read-only source code
+      - ./app.py:/app/app.py:ro  # Main application file
+      - ./logs:/app/logs  # Persistent logs
+      - ./cache:/app/cache  # Application cache
+      - ./metrics:/app/metrics  # Performance metrics
+      - ./benchmarks:/app/benchmarks  # Benchmark results
+
+    networks:
+      - felix-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: felix-redis
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+    networks:
+      - felix-network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: felix-prometheus
+    restart: unless-stopped
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+    networks:
+      - felix-network
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: felix-grafana
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ADMIN_USER=admin
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+
+    networks:
+      - felix-network
+
+    depends_on:
+      - prometheus
+
+  # PostgreSQL for persistent data storage
+  postgres:
+    image: postgres:15-alpine
+    container_name: felix-postgres
+    restart: unless-stopped
+
+    ports:
+      - "5432:5432"
+
+    environment:
+      - POSTGRES_DB=felix_framework
+      - POSTGRES_USER=felix
+      - POSTGRES_PASSWORD=felix_dev_password
+      - POSTGRES_INITDB_ARGS="--encoding=UTF-8 --locale=en_US.UTF-8"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    networks:
+      - felix-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U felix -d felix_framework"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Performance testing service
+  performance-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: felix-performance-test
+
+    environment:
+      - ENVIRONMENT=testing
+      - FELIX_DEBUG=true
+      - TEST_MODE=performance
+
+    volumes:
+      - ./tests:/app/tests:ro
+      - ./benchmarks:/app/benchmarks
+      - ./scripts:/app/scripts:ro
+
+    networks:
+      - felix-network
+
+    depends_on:
+      - felix-framework
+
+    command: >
+      sh -c "
+        echo '🧪 Starting performance tests...'
+        python -m pytest tests/performance/ -v --benchmark-json=benchmarks/docker-benchmarks.json
+        echo '✅ Performance tests completed'
+      "
+
+    profiles:
+      - testing  # Only start with --profile testing
+
+  # Load testing with Artillery
+  load-test:
+    image: artilleryio/artillery:latest
+    container_name: felix-load-test
+
+    volumes:
+      - ./tests/load:/tests:ro
+      - ./benchmarks:/benchmarks
+
+    networks:
+      - felix-network
+
+    depends_on:
+      - felix-framework
+
+    command: >
+      sh -c "
+        echo '🔥 Starting load tests...'
+        artillery run /tests/load-test-config.yml --output /benchmarks/load-test-results.json
+        echo '✅ Load tests completed'
+      "
+
+    profiles:
+      - testing
+
+  # Development tools container
+  dev-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development tools
+    container_name: felix-dev-tools
+
+    volumes:
+      - .:/app
+      - felix-cache:/app/.cache
+
+    environment:
+      - ENVIRONMENT=development
+      - FELIX_DEBUG=true
+
+    networks:
+      - felix-network
+
+    working_dir: /app
+
+    command: >
+      sh -c "
+        echo '🛠️ Development tools container ready'
+        echo 'Available commands:'
+        echo '  - pytest: Run tests'
+        echo '  - black: Code formatting'
+        echo '  - isort: Import sorting'
+        echo '  - mypy: Type checking'
+        echo '  - bandit: Security scanning'
+        tail -f /dev/null
+      "
+
+    profiles:
+      - development
+
+# Networks
+networks:
+  felix-network:
+    driver: bridge
+    name: felix-network
+
+# Volumes for persistent data
+volumes:
+  redis-data:
+    name: felix-redis-data
+  prometheus-data:
+    name: felix-prometheus-data
+  grafana-data:
+    name: felix-grafana-data
+  postgres-data:
+    name: felix-postgres-data
+  felix-cache:
+    name: felix-cache
+
+# Development and testing configurations
+x-common-variables: &common-variables
+  FELIX_VERSION: "1.0.0"
+  FELIX_ENVIRONMENT: "docker"
+  PYTHONPATH: "/app"
+
+x-resource-limits: &resource-limits
+  deploy:
+    resources:
+      limits:
+        memory: 2G
+        cpus: '1.0'
