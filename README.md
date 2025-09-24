@@ -8,25 +8,25 @@ sdk_version: 5.46.1
 app_file: app.py
 pinned: false
 license: mit
-short_description: Research-validated helix-based multi-agent cognitive architecture with ZeroGPU optimization
+short_description: Helix-based multi-agent cognitive architecture with ZeroGPU
 tags:
-  - multi-agent
-  - cognitive-architecture
-  - zerogpu
-  - ai-coordination
-  - research
-  - felix-framework
-  - helix-geometry
-  - agent-systems
+   - multi-agent
+   - cognitive-architecture
+   - zerogpu
+   - ai-coordination
+   - research
+   - felix-framework
+   - helix-geometry
+   - agent-systems
 models:
-  - microsoft/DialoGPT-large
-  - meta-llama/Llama-3.1-8B-Instruct
-  - meta-llama/Llama-3.1-13B-Instruct
-  - Qwen/Qwen2.5-7B-Instruct
+   - microsoft/DialoGPT-large
+   - meta-llama/Llama-3.1-8B-Instruct
+   - meta-llama/Llama-3.1-13B-Instruct
+   - Qwen/Qwen2.5-7B-Instruct
 datasets:
-  - research-data
-hardware: zero-gpu-medium
-suggested_hardware: zero-gpu-medium
+   - research-data
+hardware: zero-a10g
+suggested_hardware: zero-a10g
 disable_embedding: false
 ---
 
