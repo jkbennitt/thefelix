@@ -272,7 +272,7 @@ class FelixZeroGPUInterface:
             progress(1.0, desc="Task failed")
             raise
 
-    def create_helix_visualization(self, agent_positions: List[Dict] = None):
+    def create_helix_visualization(self, agent_positions: List[Dict] = None, height: int = 700):
         """Create interactive 3D helix visualization."""
         # Generate helix points
         t_values = np.linspace(0, 1, 1000)
@@ -354,7 +354,7 @@ class FelixZeroGPUInterface:
                 aspectmode='cube'
             ),
             width=900,
-            height=700,
+            height=height,
             margin=dict(l=0, r=0, t=60, b=0),
             showlegend=True,
             legend=dict(
@@ -677,9 +677,8 @@ def create_gradio_interface(felix_interface: FelixZeroGPUInterface, config: Dict
                         gr.Markdown("### 🌌 Real-time Helix Visualization")
                         helix_plot = gr.Plot(
                             label="3D Felix Helix with Active Agents",
-                            value=felix_interface.create_helix_visualization(),
-                            elem_classes="viz-container",
-                            height=600
+                            value=felix_interface.create_helix_visualization(height=600),
+                            elem_classes="viz-container"
                         )
 
                 # Results section
@@ -705,8 +704,7 @@ def create_gradio_interface(felix_interface: FelixZeroGPUInterface, config: Dict
                     with gr.Column(scale=3):
                         detailed_plot = gr.Plot(
                             label="Interactive Felix Helix Architecture",
-                            value=felix_interface.create_helix_visualization(),
-                            height=700
+                            value=felix_interface.create_helix_visualization(height=700)
                         )
 
                     with gr.Column(scale=1):
@@ -763,8 +761,7 @@ def create_gradio_interface(felix_interface: FelixZeroGPUInterface, config: Dict
                 with gr.Row():
                     performance_dashboard = gr.Plot(
                         label="Felix Framework Performance Metrics",
-                        value=felix_interface.create_performance_dashboard(),
-                        height=600
+                        value=felix_interface.create_performance_dashboard()
                     )
 
                 with gr.Row():
@@ -1039,7 +1036,7 @@ def create_gradio_interface(felix_interface: FelixZeroGPUInterface, config: Dict
                     result_text += "*Note: This demonstration shows coordination patterns. Full LLM processing requires HuggingFace API token.*"
 
                 # Update visualization
-                updated_viz = felix_interface.create_helix_visualization(agent_results)
+                updated_viz = felix_interface.create_helix_visualization(agent_results, height=600)
 
                 # Performance metrics
                 felix_interface.performance_metrics['total_tasks'] += 1
